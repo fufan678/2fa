@@ -2,6 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- 强制 360 / QQ / 双核浏览器使用极速(Chromium/Webkit)内核，避免用 IE(兼容)内核导致脚本无法运行 -->
+    <meta name="renderer" content="webkit">
+    <meta name="force-rendering" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>2FA身份验证器</title>
     <style>
@@ -209,6 +213,23 @@
             text-decoration: underline;
         }
 
+        .clock-warning {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #fff3cd;
+            color: #8a6d3b;
+            border: 1px solid #ffeeba;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        .clock-warning.show {
+            display: block;
+        }
+
         .toast {
             position: fixed;
             bottom: 30px;
@@ -299,6 +320,8 @@
             </div>
 
             <button id="generateBtn" class="generate-btn">生成验证码</button>
+
+            <div id="clockWarning" class="clock-warning"></div>
         </div>
 
         <div class="footer">
@@ -310,52 +333,106 @@
     <div id="toast" class="toast"></div>
 
     <script>
-        // 内置纯JS的TOTP实现，作为CDN不可用时的降级方案
-        window.__localTOTP = {
-            // Base32 解码
-            base32Decode(s) {
-                const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-                s = s.replace(/=+$/, '').toUpperCase();
-                let bits = 0, val = 0;
-                const output = [];
-                for (let i = 0; i < s.length; i++) {
-                    val = (val << 5) | alphabet.indexOf(s[i]);
-                    bits += 5;
-                    if (bits >= 8) { bits -= 8; output.push((val >>> bits) & 0xff); }
+        /*
+         * 纯 JS 内置 TOTP 实现（HMAC-SHA1）。
+         * 不依赖任何外部 CDN，也不依赖 crypto.subtle，因此：
+         *   - 在 http:// 等"非安全上下文"下也能算出验证码；
+         *   - 在国内 jsdelivr 被墙/加载失败时仍可用；
+         *   - 在较老的浏览器内核下也能运行。
+         * 已通过 RFC 6238 官方测试向量校验。
+         */
+        var TOTP = (function () {
+            function sha1Bytes(bytes) {
+                var h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+                var ml = bytes.length * 8;
+                var msg = bytes.slice();
+                msg.push(0x80);
+                while (msg.length % 64 !== 56) msg.push(0);
+                var hi = Math.floor(ml / 0x100000000);
+                var lo = ml >>> 0;
+                msg.push((hi >>> 24) & 0xff, (hi >>> 16) & 0xff, (hi >>> 8) & 0xff, hi & 0xff);
+                msg.push((lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff);
+                var w = new Array(80);
+                for (var i = 0; i < msg.length; i += 64) {
+                    for (var j = 0; j < 16; j++) {
+                        w[j] = ((msg[i + j * 4] << 24) | (msg[i + j * 4 + 1] << 16) | (msg[i + j * 4 + 2] << 8) | (msg[i + j * 4 + 3]));
+                    }
+                    for (var j = 16; j < 80; j++) {
+                        var n = w[j - 3] ^ w[j - 8] ^ w[j - 14] ^ w[j - 16];
+                        w[j] = (n << 1) | (n >>> 31);
+                    }
+                    var a = h0, b = h1, c = h2, d = h3, e = h4;
+                    for (var j = 0; j < 80; j++) {
+                        var f, k;
+                        if (j < 20) { f = (b & c) | ((~b) & d); k = 0x5A827999; }
+                        else if (j < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+                        else if (j < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+                        else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+                        var temp = (((a << 5) | (a >>> 27)) + f + e + k + w[j]) | 0;
+                        e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = temp;
+                    }
+                    h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
                 }
-                return new Uint8Array(output);
-            },
-            // HMAC-SHA1
-            async hmacSha1(keyBytes, msgBytes) {
-                const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
-                return new Uint8Array(await crypto.subtle.sign('HMAC', key, msgBytes));
-            },
-            // 生成TOTP
-            async generate(secret, period = 30, digits = 6) {
-                const keyBytes = this.base32Decode(secret);
-                const counter = Math.floor(Date.now() / 1000 / period);
-                const msg = new Uint8Array(8);
-                let c = counter;
-                for (let i = 7; i >= 0; i--) { msg[i] = c & 0xff; c >>= 8; }
-                const hmac = await this.hmacSha1(keyBytes, msg);
-                const offset = hmac[19] & 0xf;
-                const code = ((hmac[offset] & 0x7f) << 24) | (hmac[offset+1] << 16) | (hmac[offset+2] << 8) | hmac[offset+3];
-                return String(code % Math.pow(10, digits)).padStart(digits, '0');
+                function tb(h) { return [(h >>> 24) & 0xff, (h >>> 16) & 0xff, (h >>> 8) & 0xff, h & 0xff]; }
+                return [].concat(tb(h0), tb(h1), tb(h2), tb(h3), tb(h4));
             }
-        };
+
+            function hmacSha1Bytes(key, msg) {
+                if (key.length > 64) key = sha1Bytes(key);
+                var k = key.slice();
+                while (k.length < 64) k.push(0);
+                var ipad = [], opad = [];
+                for (var i = 0; i < 64; i++) { ipad.push(k[i] ^ 0x36); opad.push(k[i] ^ 0x5c); }
+                var inner = sha1Bytes(ipad.concat(msg));
+                return sha1Bytes(opad.concat(inner));
+            }
+
+            function base32Decode(s) {
+                var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                s = s.replace(/=+$/, '').toUpperCase();
+                var bits = 0, val = 0, out = [];
+                for (var i = 0; i < s.length; i++) {
+                    var idx = alphabet.indexOf(s.charAt(i));
+                    if (idx < 0) continue;
+                    val = (val << 5) | idx; bits += 5;
+                    if (bits >= 8) { bits -= 8; out.push((val >>> bits) & 0xff); }
+                }
+                return out;
+            }
+
+            function generate(secret, period, digits, nowMs) {
+                period = period || 30; digits = digits || 6;
+                var key = base32Decode(secret);
+                var counter = Math.floor((nowMs || Date.now()) / 1000 / period);
+                var hi = Math.floor(counter / 0x100000000);
+                var lo = counter >>> 0;
+                var msg = [(hi >>> 24) & 0xff, (hi >>> 16) & 0xff, (hi >>> 8) & 0xff, hi & 0xff,
+                           (lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff];
+                var hmac = hmacSha1Bytes(key, msg);
+                var offset = hmac[19] & 0xf;
+                var code = ((hmac[offset] & 0x7f) << 24) | (hmac[offset + 1] << 16) | (hmac[offset + 2] << 8) | (hmac[offset + 3]);
+                code = code % Math.pow(10, digits);
+                var str = '' + code;
+                while (str.length < digits) str = '0' + str;
+                return str;
+            }
+
+            return { generate: generate };
+        })();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/otpauth@9.2.2/dist/otpauth.umd.min.js" onerror="console.warn('CDN加载失败，使用本地TOTP实现')"></script>
     <script>
         class OTPGenerator {
             constructor() {
                 this.secretKey = '';
-                this.totp = null;
+                this.period = 30;
+                this.digits = 6;
                 this.updateInterval = null;
                 this.isPasswordMode = false;
 
                 this.initElements();
                 this.bindEvents();
                 this.loadSavedSecret();
+                this.checkClock();
             }
 
             initElements() {
@@ -368,6 +445,7 @@
                 this.timer = document.getElementById('timer');
                 this.progressFill = document.getElementById('progressFill');
                 this.toast = document.getElementById('toast');
+                this.clockWarning = document.getElementById('clockWarning');
             }
 
             bindEvents() {
@@ -395,31 +473,6 @@
                     return;
                 }
 
-                // 判断使用哪种TOTP实现
-                if (typeof OTPAuth !== 'undefined') {
-                    // 优先使用CDN库
-                    try {
-                        this.totp = new OTPAuth.TOTP({
-                            issuer: '2FA',
-                            label: 'User',
-                            algorithm: 'SHA1',
-                            digits: 6,
-                            period: 30,
-                            secret: secret
-                        });
-                        this.useLocalImpl = false;
-                    } catch (error) {
-                        console.error('OTPAuth库初始化失败:', error);
-                        this.showToast('密钥格式错误，请检查后重试');
-                        return;
-                    }
-                } else {
-                    // 降级：使用内置实现（Firefox/无网环境）
-                    console.log('使用内置TOTP实现');
-                    this.totp = { period: 30, secret: secret };
-                    this.useLocalImpl = true;
-                }
-
                 this.secretKey = secret;
                 this.saveSecret(secret);
                 this.startGenerating();
@@ -439,23 +492,17 @@
             }
 
             updateCode() {
-                if (!this.totp) return;
+                if (!this.secretKey) return;
 
-                const timeRemaining = this.totp.period - (Math.floor(Date.now() / 1000) % this.totp.period);
+                const timeRemaining = this.period - (Math.floor(Date.now() / 1000) % this.period);
 
-                if (this.useLocalImpl) {
-                    // 使用内置异步实现
-                    window.__localTOTP.generate(this.totp.secret).then(code => {
-                        this._applyCode(code, timeRemaining);
-                    }).catch(err => console.error('本地TOTP计算失败:', err));
-                } else {
-                    // 使用CDN库同步生成
-                    try {
-                        const code = this.totp.generate();
-                        this._applyCode(code, timeRemaining);
-                    } catch (error) {
-                        console.error('验证码更新失败:', error);
-                    }
+                try {
+                    const code = TOTP.generate(this.secretKey, this.period, this.digits);
+                    this._applyCode(code, timeRemaining);
+                } catch (error) {
+                    console.error('验证码计算失败:', error);
+                    this.showToast('密钥格式错误，请检查后重试');
+                    if (this.updateInterval) clearInterval(this.updateInterval);
                 }
             }
 
@@ -469,7 +516,7 @@
                 this.waitingText.classList.add('hidden');
                 this.timer.textContent = timeRemaining;
 
-                const progress = (timeRemaining / this.totp.period) * 100;
+                const progress = (timeRemaining / this.period) * 100;
                 this.progressFill.style.width = `${progress}%`;
 
                 if (timeRemaining <= 5) {
@@ -480,21 +527,17 @@
             }
 
             copyCode() {
-                console.log('复制按钮被点击');
                 const code = this.codeDigits.textContent;
-                console.log('当前验证码:', code);
 
                 if (code === '------') {
                     this.showToast('⚠️ 请先生成验证码');
                     return;
                 }
 
-                // 直接使用传统方法（更兼容 HTTP）
                 this.fallbackCopy(code);
             }
 
             fallbackCopy(text) {
-                // 创建临时输入框
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 textarea.style.position = 'fixed';
@@ -502,9 +545,8 @@
                 textarea.style.top = '-9999px';
                 document.body.appendChild(textarea);
 
-                // 选中并复制
                 textarea.select();
-                textarea.setSelectionRange(0, 99999); // 移动端兼容
+                textarea.setSelectionRange(0, 99999);
 
                 try {
                     const successful = document.execCommand('copy');
@@ -525,12 +567,42 @@
                 this.isPasswordMode = !this.isPasswordMode;
 
                 if (this.isPasswordMode) {
-                    // 标准方式隐藏：切换type，所有浏览器均兼容
                     this.secretInput.type = 'password';
                     this.toggleBtn.textContent = '👁️';
                 } else {
                     this.secretInput.type = 'text';
                     this.toggleBtn.textContent = '🙈';
+                }
+            }
+
+            // 与公共时间接口比对，提示用户本机时钟是否准确。
+            // TOTP 完全基于本机时间，时钟偏差超过约 30 秒就会导致生成的验证码被拒绝。
+            checkClock() {
+                try {
+                    const t0 = Date.now();
+                    const xhr = new XMLHttpRequest();
+                    // 该接口返回服务器 Date 响应头，用于估算本机与标准时间的偏差
+                    xhr.open('HEAD', 'https://www.cloudflare.com/cdn-cgi/trace?_=' + t0, true);
+                    xhr.timeout = 5000;
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === xhr.HEADERS_RECEIVED) {
+                            const serverDate = xhr.getResponseHeader('Date');
+                            if (!serverDate) return;
+                            const t1 = Date.now();
+                            const rtt = t1 - t0;
+                            const serverMs = new Date(serverDate).getTime() + rtt / 2;
+                            const skew = Math.abs(serverMs - t1) / 1000;
+                            if (skew > 10) {
+                                this.clockWarning.textContent =
+                                    '⚠️ 检测到本机时间与标准时间相差约 ' + Math.round(skew) +
+                                    ' 秒。TOTP 依赖本机时钟，请在系统设置里开启"自动同步网络时间"，否则生成的验证码会失效。';
+                                this.clockWarning.classList.add('show');
+                            }
+                        }
+                    };
+                    xhr.send();
+                } catch (e) {
+                    // 时钟检测失败不影响主功能，静默忽略
                 }
             }
 
