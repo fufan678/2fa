@@ -26,6 +26,7 @@
         }
 
         .container {
+            position: relative;
             background: white;
             padding: 40px;
             border-radius: 20px;
@@ -263,6 +264,25 @@
             font-weight: 400;
         }
 
+        .lang-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: #f0f0f3;
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .lang-btn:hover {
+            background: #e6e6ef;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 30px 20px;
@@ -281,20 +301,21 @@
 </head>
 <body>
     <div class="container">
+        <button id="langBtn" class="lang-btn">EN</button>
         <div class="header">
-            <h1>🔐 2FA身份验证器</h1>
+            <h1 id="heading">🔐 2FA身份验证器</h1>
         </div>
 
         <div class="code-section">
             <div class="code-display">
                 <div id="codeDigits" class="code-digits">------</div>
-                <div class="waiting-text">等待输入密钥中...</div>
+                <div class="waiting-text" id="waitingText">等待输入密钥中...</div>
             </div>
 
             <div class="timer-section">
-                <span>剩余时间：</span>
+                <span id="remainingLabel">剩余时间：</span>
                 <span id="timer" class="timer">30</span>
-                <span>秒</span>
+                <span id="secondsLabel">秒</span>
             </div>
 
             <div class="progress-bar">
@@ -305,7 +326,7 @@
         </div>
 
         <div class="input-section">
-            <label for="secretInput" style="display: block; color: #666; font-size: 14px; font-weight: 500; margin-bottom: 8px;">输入密钥</label>
+            <label for="secretInput" id="secretLabel" style="display: block; color: #666; font-size: 14px; font-weight: 500; margin-bottom: 8px;">输入密钥</label>
             <div class="input-group">
                 <input
                     type="text"
@@ -324,8 +345,8 @@
             <div id="clockWarning" class="clock-warning"></div>
         </div>
 
-        <div class="footer">
-            <span class="author">⚡ 闲鱼/淘宝店铺：效率工具补给点</span>
+        <div class="footer" id="footer">
+            <span class="author" id="footerText">⚡ 闲鱼/淘宝店铺：效率工具补给点</span>
         </div>
 
     </div>
@@ -341,6 +362,76 @@
          *   - 在较老的浏览器内核下也能运行。
          * 已通过 RFC 6238 官方测试向量校验。
          */
+        // ===== 多语言 i18n：按浏览器语言自动切换，并提供手动切换按钮 =====
+        var I18N = {
+            zh: {
+                title: '2FA身份验证器',
+                heading: '🔐 2FA身份验证器',
+                waiting: '等待输入密钥中...',
+                remaining: '剩余时间：',
+                seconds: '秒',
+                copyBtn: '📋 复制验证码',
+                secretLabel: '输入密钥',
+                secretPlaceholder: '请输入密钥',
+                generateBtn: '生成验证码',
+                langToggle: 'EN',
+                needSecret: '请输入密钥',
+                invalidChars: '密钥含非法字符，仅支持 A-Z 和 2-7',
+                generated: '验证码生成成功',
+                calcError: '密钥格式错误，请检查后重试',
+                genFirst: '⚠️ 请先生成验证码',
+                copied: '✅ 验证码已复制',
+                copyFail: '❌ 复制失败，请手动复制',
+                copyFailManual: '❌ 复制失败，请手动复制: ',
+                clockWarn: function (s) { return '⚠️ 检测到本机时间与标准时间相差约 ' + s + ' 秒。TOTP 依赖本机时钟，请在系统设置里开启“自动同步网络时间”，否则生成的验证码会失效。'; }
+            },
+            en: {
+                title: '2FA Authenticator',
+                heading: '🔐 2FA Authenticator',
+                waiting: 'Waiting for a secret key...',
+                remaining: 'Time left:',
+                seconds: 's',
+                copyBtn: '📋 Copy code',
+                secretLabel: 'Secret key',
+                secretPlaceholder: 'Enter your secret key',
+                generateBtn: 'Generate code',
+                langToggle: '中',
+                needSecret: 'Please enter a secret key',
+                invalidChars: 'Invalid characters. Only A-Z and 2-7 are allowed',
+                generated: 'Code generated',
+                calcError: 'Invalid secret format, please check and retry',
+                genFirst: '⚠️ Please generate a code first',
+                copied: '✅ Code copied',
+                copyFail: '❌ Copy failed, please copy manually',
+                copyFailManual: '❌ Copy failed, please copy manually: ',
+                clockWarn: function (s) { return '⚠️ Your device clock is off by ~' + s + 's from standard time. TOTP relies on your device clock — please enable “Set time automatically” in system settings, otherwise generated codes will be rejected.'; }
+            }
+        };
+        var LANG = 'zh';
+        function t(key) { return I18N[LANG][key]; }
+        function detectLang() {
+            try { var s = localStorage.getItem('ui_lang'); if (s === 'zh' || s === 'en') return s; } catch (e) {}
+            var l = (navigator.languages && navigator.languages[0]) || navigator.language || navigator.userLanguage || '';
+            return l.toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+        }
+        function applyLang(lang) {
+            LANG = (lang === 'en') ? 'en' : 'zh';
+            var d = I18N[LANG];
+            document.documentElement.lang = (LANG === 'zh') ? 'zh-CN' : 'en';
+            document.title = d.title;
+            var set = function (id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; };
+            set('heading', d.heading);
+            set('waitingText', d.waiting);
+            set('remainingLabel', d.remaining);
+            set('secondsLabel', d.seconds);
+            set('copyBtn', d.copyBtn);
+            set('secretLabel', d.secretLabel);
+            set('generateBtn', d.generateBtn);
+            set('langBtn', d.langToggle);
+            var input = document.getElementById('secretInput'); if (input) input.placeholder = d.secretPlaceholder;
+            var footer = document.getElementById('footer'); if (footer) footer.style.display = (LANG === 'zh') ? '' : 'none';
+        }
+
         var TOTP = (function () {
             function sha1Bytes(bytes) {
                 var h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
@@ -463,20 +554,20 @@
                 const secret = raw.trim().replace(/[\s\-_=]/g, '').toUpperCase();
 
                 if (!secret) {
-                    this.showToast('请输入密钥');
+                    this.showToast(t('needSecret'));
                     return;
                 }
 
                 // 验证Base32字符集
                 if (!/^[A-Z2-7]+$/.test(secret)) {
-                    this.showToast('密钥含非法字符，仅支持A-Z和2-7');
+                    this.showToast(t('invalidChars'));
                     return;
                 }
 
                 this.secretKey = secret;
                 this.saveSecret(secret);
                 this.startGenerating();
-                this.showToast('验证码生成成功');
+                this.showToast(t('generated'));
             }
 
             startGenerating() {
@@ -501,7 +592,7 @@
                     this._applyCode(code, timeRemaining);
                 } catch (error) {
                     console.error('验证码计算失败:', error);
-                    this.showToast('密钥格式错误，请检查后重试');
+                    this.showToast(t('calcError'));
                     if (this.updateInterval) clearInterval(this.updateInterval);
                 }
             }
@@ -530,7 +621,7 @@
                 const code = this.codeDigits.textContent;
 
                 if (code === '------') {
-                    this.showToast('⚠️ 请先生成验证码');
+                    this.showToast(t('genFirst'));
                     return;
                 }
 
@@ -551,13 +642,13 @@
                 try {
                     const successful = document.execCommand('copy');
                     if (successful) {
-                        this.showToast('✅ 验证码已复制');
+                        this.showToast(t('copied'));
                     } else {
-                        this.showToast('❌ 复制失败，请手动复制');
+                        this.showToast(t('copyFail'));
                     }
                 } catch (err) {
                     console.error('Fallback copy failed:', err);
-                    this.showToast('❌ 复制失败，请手动复制: ' + text);
+                    this.showToast(t('copyFailManual') + text);
                 } finally {
                     document.body.removeChild(textarea);
                 }
@@ -593,9 +684,7 @@
                             const serverMs = new Date(serverDate).getTime() + rtt / 2;
                             const skew = Math.abs(serverMs - t1) / 1000;
                             if (skew > 10) {
-                                this.clockWarning.textContent =
-                                    '⚠️ 检测到本机时间与标准时间相差约 ' + Math.round(skew) +
-                                    ' 秒。TOTP 依赖本机时钟，请在系统设置里开启"自动同步网络时间"，否则生成的验证码会失效。';
+                                this.clockWarning.textContent = t('clockWarn')(Math.round(skew));
                                 this.clockWarning.classList.add('show');
                             }
                         }
@@ -636,6 +725,15 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            applyLang(detectLang());
+            var langBtn = document.getElementById('langBtn');
+            if (langBtn) {
+                langBtn.addEventListener('click', function () {
+                    var next = (LANG === 'zh') ? 'en' : 'zh';
+                    try { localStorage.setItem('ui_lang', next); } catch (e) {}
+                    applyLang(next);
+                });
+            }
             new OTPGenerator();
         });
     </script>
