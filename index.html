@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <!-- 强制 360 / QQ / 双核浏览器使用极速(Chromium/Webkit)内核，避免用 IE(兼容)内核导致脚本无法运行 -->
@@ -17,7 +18,12 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #f4f8f5;
+            background-image: 
+                radial-gradient(circle at 0% 0%, #b5f0cc 0%, transparent 35%),             /* 左上：一小片亮薄荷绿 */
+                radial-gradient(circle at 100% 0%, #f0edc0 0%, transparent 25%),            /* 右上：淡暖黄 */
+                radial-gradient(circle at 0% 100%, #d0e6d8 0%, transparent 30%),            /* 左下：灰绿/鼠尾草绿 */
+                radial-gradient(circle at 50% 88%, #b5f0cc 0%, transparent 25%);          /* 卡片正下方：薄荷绿（与左上呼应） */
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -30,9 +36,9 @@
             background: white;
             padding: 40px;
             border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 12px 30px rgba(0, 80, 40, 0.08);
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
         }
 
         .header {
@@ -41,8 +47,10 @@
         }
 
         .header h1 {
-            color: #333;
+            color: #003322;
             font-size: 24px;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-weight: 800;
             margin-bottom: 8px;
         }
 
@@ -52,11 +60,12 @@
         }
 
         .code-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
-            border-radius: 15px;
+            background: linear-gradient(135deg, #00c65c 0%, #8ae000 100%);
+            padding: 35px 30px;
+            border-radius: 20px;
             margin-bottom: 25px;
             text-align: center;
+            box-shadow: 0 8px 25px rgba(0, 198, 92, 0.3);
         }
 
         .code-display {
@@ -64,13 +73,14 @@
         }
 
         .code-digits {
-            font-size: 48px;
+            font-size: 42px;
             font-weight: 700;
             color: white;
-            letter-spacing: 8px;
+            letter-spacing: 10px;
             font-family: 'Courier New', monospace;
             margin-bottom: 10px;
             transition: all 0.3s;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .code-digits.active {
@@ -97,7 +107,7 @@
         }
 
         .timer {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
         }
 
@@ -105,33 +115,35 @@
             width: 100%;
             height: 6px;
             background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
+            border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
         .progress-fill {
             height: 100%;
             background: white;
-            border-radius: 3px;
+            border-radius: 4px;
             transition: width 1s linear;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .copy-btn {
             width: 100%;
             padding: 12px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #667eea;
+            background: rgba(255, 255, 255, 0.5);
+            color: #007a3d;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .copy-btn:hover {
-            background: white;
+            background: rgba(255, 255, 255, 0.7);
+            color: #005c2e;
             transform: translateY(-2px);
         }
 
@@ -147,19 +159,25 @@
         .input-group input {
             width: 100%;
             padding: 14px 45px 14px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border: 1px solid #bcead1;
+            background: #f5fcf8;
+            border-radius: 12px;
             font-size: 15px;
+            color: #004d2e;
             outline: none;
             transition: all 0.3s;
             font-family: 'Courier New', monospace;
         }
 
+        .input-group input::placeholder {
+            color: #9ac9b1;
+        }
+
         /* 密码隐藏通过 type="password" 切换实现，跨浏览器兼容 */
 
         .input-group input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #00c65c;
+            box-shadow: 0 0 0 3px rgba(0, 198, 92, 0.15);
         }
 
         .toggle-btn {
@@ -182,19 +200,21 @@
         .generate-btn {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #00c65c;
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 198, 92, 0.3);
         }
 
         .generate-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            background: #00b052;
+            box-shadow: 0 6px 20px rgba(0, 198, 92, 0.4);
         }
 
         .admin-link {
@@ -203,14 +223,14 @@
         }
 
         .admin-link a {
-            color: #667eea;
+            color: #10b981;
             text-decoration: none;
             font-size: 14px;
             transition: all 0.3s;
         }
 
         .admin-link a:hover {
-            color: #764ba2;
+            color: #047857;
             text-decoration: underline;
         }
 
@@ -254,7 +274,7 @@
         .footer {
             margin-top: 40px;
             padding-top: 20px;
-            border-top: 1px solid rgba(102, 126, 234, 0.1);
+            border-top: 1px solid rgba(16, 185, 129, 0.1);
             text-align: center;
         }
 
@@ -268,19 +288,19 @@
             position: absolute;
             top: 16px;
             right: 16px;
-            background: #f0f0f3;
-            color: #667eea;
+            background: #e9f8f0;
+            color: #009955;
             border: none;
-            border-radius: 8px;
-            padding: 6px 10px;
+            border-radius: 20px;
+            padding: 6px 14px;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .lang-btn:hover {
-            background: #e6e6ef;
+            background: #d4f1e1;
         }
 
         @media (max-width: 480px) {
@@ -299,6 +319,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <button id="langBtn" class="lang-btn">EN</button>
@@ -326,18 +347,19 @@
         </div>
 
         <div class="input-section">
-            <label for="secretInput" id="secretLabel" style="display: block; color: #666; font-size: 14px; font-weight: 500; margin-bottom: 8px;">输入密钥</label>
+            <label for="secretInput" id="secretLabel"
+                style="display: block; color: #005533; font-size: 14px; font-weight: 700; margin-bottom: 8px;">输入密钥</label>
             <div class="input-group">
-                <input
-                    type="text"
-                    id="secretInput"
-                    placeholder="请输入密钥"
-                    autocomplete="new-password"
-                    spellcheck="false"
-                    autocorrect="off"
-                    autocapitalize="off"
-                >
-                <button id="toggleBtn" class="toggle-btn">🙈</button>
+                <input type="text" id="secretInput" placeholder="请输入密钥" autocomplete="new-password" spellcheck="false"
+                    autocorrect="off" autocapitalize="off">
+                <button id="toggleBtn" class="toggle-btn"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+                        </path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg></button>
             </div>
 
             <button id="generateBtn" class="generate-btn">生成验证码</button>
@@ -410,7 +432,7 @@
         var LANG = 'zh';
         function t(key) { return I18N[LANG][key]; }
         function detectLang() {
-            try { var s = localStorage.getItem('ui_lang'); if (s === 'zh' || s === 'en') return s; } catch (e) {}
+            try { var s = localStorage.getItem('ui_lang'); if (s === 'zh' || s === 'en') return s; } catch (e) { }
             var l = (navigator.languages && navigator.languages[0]) || navigator.language || navigator.userLanguage || '';
             return l.toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
         }
@@ -498,7 +520,7 @@
                 var hi = Math.floor(counter / 0x100000000);
                 var lo = counter >>> 0;
                 var msg = [(hi >>> 24) & 0xff, (hi >>> 16) & 0xff, (hi >>> 8) & 0xff, hi & 0xff,
-                           (lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff];
+                (lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff];
                 var hmac = hmacSha1Bytes(key, msg);
                 var offset = hmac[19] & 0xf;
                 var code = ((hmac[offset] & 0x7f) << 24) | (hmac[offset + 1] << 16) | (hmac[offset + 2] << 8) | (hmac[offset + 3]);
@@ -657,12 +679,15 @@
             togglePasswordMode() {
                 this.isPasswordMode = !this.isPasswordMode;
 
+                const eyeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+                const eyeOffIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
                 if (this.isPasswordMode) {
                     this.secretInput.type = 'password';
-                    this.toggleBtn.textContent = '👁️';
+                    this.toggleBtn.innerHTML = eyeIcon;
                 } else {
                     this.secretInput.type = 'text';
-                    this.toggleBtn.textContent = '🙈';
+                    this.toggleBtn.innerHTML = eyeOffIcon;
                 }
             }
 
@@ -730,7 +755,7 @@
             if (langBtn) {
                 langBtn.addEventListener('click', function () {
                     var next = (LANG === 'zh') ? 'en' : 'zh';
-                    try { localStorage.setItem('ui_lang', next); } catch (e) {}
+                    try { localStorage.setItem('ui_lang', next); } catch (e) { }
                     applyLang(next);
                 });
             }
@@ -738,4 +763,5 @@
         });
     </script>
 </body>
+
 </html>
